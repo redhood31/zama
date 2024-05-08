@@ -29,15 +29,16 @@ struct BlogStorage{
 contract FHE_BLOG is Initializable, ERC721Upgradeable {
     string public constant TOKEN_URI =
         "ipfs://bafybeig37ioir76s7mg5oobetncojcm3c3hxasyd4rvid4jqhy4gkaheg4/?filename=0-PUG.json";
-    uint256 private s_tokenCounter;
-    uint256 public nonce = 0;
-    
+    uint256 public s_tokenCounter;
+
 
     
     BlogStorage private data;
-
+    mapping(address => mapping(uint64 => bool)) internal rewarded;
+    mapping(address => uint256) public reward;
+    mapping(address => uint64) public latest_nonce;
     // function data()
-    function initialize(
+    function initialize(    
         BlogStorage memory _data, string memory _nft_name, string memory _nft_short_name
     ) external initializer{
          __ERC721_init(_nft_name, _nft_short_name);
@@ -52,6 +53,9 @@ contract FHE_BLOG is Initializable, ERC721Upgradeable {
     function mintNft() public {
         _safeMint(msg.sender, s_tokenCounter);
         s_tokenCounter = s_tokenCounter + 1;
+    }
+    function increaseNonce() public{
+        latest_nonce[msg.sender] += 1;
     }
 
     function tokenURI(uint256 tokenId) public view override returns (string memory) {
@@ -78,28 +82,11 @@ contract FHE_BLOG is Initializable, ERC721Upgradeable {
         address recoveredSigner = ECDSA.recover(digest, signature);
         return signer == recoveredSigner;
     }
-    function generateJwt(uint8 relayer_id, address caller, uint256 _nonce, bytes memory signature, bytes32 publicKey) public view returns (DecryptedBlog memory) {
+    function generateJwt(uint256 nft, uint8 relayer_id, address caller, uint256 _nonce, bytes memory signature, bytes32 publicKey) public view returns (DecryptedBlog memory) {
        
-        assert(nonce == _nonce);
-        assert(verifySignature(relayer_id, _nonce, caller, signature) == true);
+        assert(ownerOf(nft) == caller);
 
-        // nonce += 1;
 
-        DecryptedBlog memory decrypted_storage;
-        bytes[][] memory decryptedp = new bytes[][](data.p.length);
-        for(uint256 i = 0; i < data.p.length; i += 1){
-            decryptedp[i] = new bytes[](2);
-            decryptedp[i][0] = TFHE.reencrypt(TFHE.asEuint64(data.p[i][0]), publicKey);
-            decryptedp[i][1] = TFHE.reencrypt(TFHE.asEuint64(data.p[i][1]), publicKey);
-        }
-        decrypted_storage.cid = data.cid;
-        
-        decrypted_storage.p = decryptedp;
-        return decrypted_storage;
-    }
-    function generateJwt2(uint8 relayer_id, address caller, uint256 _nonce, bytes memory signature, bytes32 publicKey) public returns (DecryptedBlog memory) {
-       
-        assert(nonce == _nonce);
         assert(verifySignature(relayer_id, _nonce, caller, signature) == true);
 
         // nonce += 1;
@@ -117,29 +104,16 @@ contract FHE_BLOG is Initializable, ERC721Upgradeable {
         return decrypted_storage;
     }
 
-
-    event NewToken(uint256[] cid, bytes[][] p, uint256 nonce, uint8 relayer);
- function generateJwt2(uint8 relayer_id, address caller, uint256 _nonce, bytes memory signature, bytes32 publicKey) {
-       
-        assert(nonce == _nonce);
+    function claimReward(uint8 relayer_id, address caller, uint64 _nonce, bytes memory signature) public {
         assert(verifySignature(relayer_id, _nonce, caller, signature) == true);
 
-        nonce += 1;
-
-        DecryptedBlog memory decrypted_storage;
-        bytes[][] memory decryptedp = new bytes[][](data.p.length);
-        for(uint256 i = 0; i < data.p.length; i += 1){
-            decryptedp[i] = new bytes[](2);
-            decryptedp[i][0] = TFHE.reencrypt(TFHE.asEuint64(data.p[i][0]), publicKey);
-            decryptedp[i][1] = TFHE.reencrypt(TFHE.asEuint64(data.p[i][1]), publicKey);
-        }
-        decrypted_storage.cid = data.cid;
-        
-        decrypted_storage.p = decryptedp;
-
-        emit NewToken(decrypted_storage.cid, decrypted_storage.p, _nonce, relayer_id);
-        // return decrypted_storage;
+        /// here we can check expiration date
+        if(rewarded[caller][_nonce] == false){
+            rewarded[caller][_nonce] = true;
+            reward[msg.sender] += 1;
+        }        
     }
+  
 }
 
 // contract FHEordle is EIP712WithModifier, Initializable {

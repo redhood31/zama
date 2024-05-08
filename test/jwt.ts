@@ -36,9 +36,9 @@ const generateSignature = async(relayer_id, nonce, signer) => {
     const signature = await signer.signMessage(messageBytes );
     return signature;
 }
-const generateJwt = async(contract, relayer_signer, relayer_instance, caller_signer, relayer_id) => {
+const generateJwt = async(contract, relayer_signer, relayer_instance, caller_signer, relayer_id, nft_token) => {
   // 
-  const current_nonce = await contract.nonce();
+  const current_nonce = await contract.latest_nonce(caller_signer.address);
   const signature = await generateSignature(relayer_id, current_nonce, caller_signer)
   
 
@@ -49,7 +49,7 @@ const generateJwt = async(contract, relayer_signer, relayer_instance, caller_sig
   const relayerContract = await contract.connect(relayer_signer)
 
 
-  const tx1 = await relayerContract.generateJwt(relayer_id, caller_signer.address, current_nonce, signature, token.publicKey) // need token.signature?
+  const tx1 = await relayerContract.generateJwt(nft_token, relayer_id, caller_signer.address, current_nonce, signature, token.publicKey) // need token.signature?
 
   console.log(" YEY RESULT IS " , tx1)
   const cids = tx1.cid;
@@ -73,6 +73,63 @@ const generateJwt = async(contract, relayer_signer, relayer_instance, caller_sig
 
 
 }
+const getReward = async(contract, relayer_signer)=>{
+  let init = await contract.reward(relayer_signer.address);
+  return init;
+}
+// await claimReward(alice_contract, this.signers.bob, this.signers.alice, 3, signature, current_nonce);
+
+const claimReward = async(contract, relayer_signer, caller,relayer_id, signature, _nonce)=>{
+
+    const relayerContract = await contract.connect(relayer_signer);
+
+    await relayerContract.claimReward(relayer_id, caller, _nonce, signature);
+
+}
+
+
+
+const getSampleAliceContract = async(alice_instance, signer_alice, init_contract)=>{
+  const factory_contract: FHEBlogFactory = await deployFheBlogFactory(signer_alice, init_contract)
+  
+  let cid = [1, 2, 3]
+  let pi = [[17 , 12], [14, 13], [19 , 20]];
+  
+  let encryptedPi = [];
+
+
+  for(let pkey of pi){
+    encryptedPi.push(
+      [
+        alice_instance.encrypt64(pkey[0]),
+        alice_instance.encrypt64(pkey[1])
+      ]
+    )          
+  }
+  let BlogStorage = {
+    cid: cid,
+    p: encryptedPi
+  }
+  console.log("lol man " , BlogStorage)
+  const txDeploy = await createTransaction(
+    factory_contract.createBlog,
+    BlogStorage,  
+    'FHE_BLOG',
+    'FHBL',
+    "0xf172873c63909462ac4de545471fd3ad3e9eeadeec4608b92d16ce6b500704cc"
+  );
+  await txDeploy.wait();
+  console.log("-------AFTER DEPLOY YYYYY")
+ 
+ 
+  console.log("GET TOKEN SIGNATURE ")
+
+  let alice_contract_adress = await factory_contract.userLastContract(signer_alice.address);
+  const alice_contract : FHE_BLOG = FHE_BLOG__factory.connect(alice_contract_adress).connect(signer_alice);
+
+  return alice_contract;
+}
+
 
 describe("FHE_BLOG_TESTS", function () {
     before(async function () {
@@ -93,10 +150,11 @@ describe("FHE_BLOG_TESTS", function () {
           assert.equal(name, "")
           assert.equal(symbol, "")
           assert.equal(tokenCounter.toString(),"0")
-      })
+      });
 
       it("Checks the signatures", async function(){
-
+        
+         console.log(" hey alisa " , this.signers.alice)
         let relayer_id = 3;
         let nonce = 0;
         let signer_addr = this.signers.alice.address;
@@ -115,63 +173,67 @@ describe("FHE_BLOG_TESTS", function () {
 
       });
 
+      it("get nft", async function() {
 
-      it("creating constructor", async function(){
-        /// alice is the main actor here
-
-
-        const factory_contract: FHEBlogFactory = await deployFheBlogFactory(this.signers.alice, this.nft_contract)
-        this.factory_contract = factory_contract;
-
-        let cid = [1, 2, 3]
-        let pi = [[17 , 12], [14, 13], [19 , 20]];
-        
-        let encryptedPi = [];
-
-
-        for(let pkey of pi){
-          encryptedPi.push(
-            [
-              this.instances.alice.encrypt64(pkey[0]),
-              this.instances.alice.encrypt64(pkey[1])
-            ]
-          )          
-        }
-        let BlogStorage = {
-          cid: cid,
-          p: encryptedPi
-        }
-        console.log("lol man " , BlogStorage)
-        const txDeploy = await createTransaction(
-          factory_contract.createBlog,
-          BlogStorage,  
-          'FHE_BLOG',
-          'FHBL',
-          "0xf172873c63909462ac4de545471fd3ad3e9eeadeec4608b92d16ce6b500704cc"
-        );
-        await txDeploy.wait();
-        console.log("-------AFTER DEPLOY YYYYY")
-       
-       
-        console.log("GET TOKEN SIGNATURE ")
-
-        let alice_contract_adress = await factory_contract.userLastContract(this.signers.alice.address);
-        const alice_contract : FHE_BLOG = FHE_BLOG__factory.connect(alice_contract_adress).connect(this.signers.alice);
-
-
-        alice_contract_adress = await alice_contract.getAddress();
+        const alice_contract = await getSampleAliceContract(this.instances.alice, this.signers.alice, this.nft_contract)
+        const alice_contract_adress = await alice_contract.getAddress();
         this.instances = await createInstances(alice_contract_adress, ethers, this.signers);
         
 
+        const nft_token = await alice_contract.s_tokenCounter();
+        await alice_contract.mintNft();
+        
 
-        const blogStorage = await generateJwt(alice_contract, this.signers.bob, this.instances.bob, this.signers.alice, 3);
+        assert.equal(this.signers.alice.address == await alice_contract.ownerOf(nft_token), true)
+  
+      });
+      it("get jwt", async function(){
+
+        const alice_contract = await getSampleAliceContract(this.instances.alice, this.signers.alice, this.nft_contract)
+        const alice_contract_adress = await alice_contract.getAddress();
+        this.instances = await createInstances(alice_contract_adress, ethers, this.signers);
+        
+        const nft_token = await alice_contract.s_tokenCounter();
+        await alice_contract.mintNft();
+        
+
+
+
+        const blogStorage = await generateJwt(alice_contract, this.signers.bob, this.instances.bob, this.signers.alice, 3, nft_token);
 
         console.log("BLOG STORAGE IS " , blogStorage)
 
        
       })
+      it("check reward", async function(){
 
-    // describe("Constructor", () => {
-    // })
+        const alice_contract = await getSampleAliceContract(this.instances.alice, this.signers.alice, this.nft_contract)
+        const alice_contract_adress = await alice_contract.getAddress();
+        this.instances = await createInstances(alice_contract_adress, ethers, this.signers);
+        
+        const nft_token = await alice_contract.s_tokenCounter();
+        await alice_contract.mintNft();
+        
+
+        const current_nonce = await alice_contract.latest_nonce(this.signers.alice.address);
+        const signature = await generateSignature(3, current_nonce, this.signers.alice);
+        
+        const blogStorage = await generateJwt(alice_contract, this.signers.bob, this.instances.bob, this.signers.alice, 3, nft_token);
+
+        assert.equal(await getReward(alice_contract, this.signers.bob), 0);
+
+        await claimReward(alice_contract, this.signers.bob, this.signers.alice, 3, signature, current_nonce);
+
+        assert.equal(await getReward(alice_contract, this.signers.bob), 1);
+
+        await claimReward(alice_contract, this.signers.bob, this.signers.alice, 3, signature, current_nonce);
+
+        assert.equal(await getReward(alice_contract, this.signers.bob), 1);
+
+        console.log("BLOG STORAGE IS " , blogStorage)
+
+       
+      })
+    
  
   });
