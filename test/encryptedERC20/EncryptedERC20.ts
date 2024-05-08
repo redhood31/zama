@@ -61,6 +61,8 @@ describe("EncryptedERC20", function () {
     await transaction.wait();
 
     const encryptedTransferAmount = this.instances.alice.encrypt64(1337);
+
+    console.log("ENCRYPTED AMOUNT LOL " , encryptedTransferAmount)
     const tx = await this.erc20["transfer(address,bytes)"](this.signers.bob.address, encryptedTransferAmount);
     await tx.wait();
 
@@ -72,9 +74,12 @@ describe("EncryptedERC20", function () {
       tokenAlice.signature,
     );
 
+    console.log("Balance of ALICE IS " , encryptedBalanceAlice)
     // Decrypt the balance
     const balanceAlice = this.instances.alice.decrypt(this.contractAddress, encryptedBalanceAlice);
 
+
+    console.log("DECRYPTED BALANCE is " , balanceAlice);
     expect(balanceAlice).to.equal(10000 - 1337);
 
     const bobErc20 = this.erc20.connect(this.signers.bob);
