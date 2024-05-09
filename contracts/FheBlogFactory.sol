@@ -9,10 +9,8 @@ import './FheBlog.sol';
 contract FHEBlogFactory is EIP712WithModifier {
     address public creator;
 
-    mapping(address => address) public userLastContract;
-
-    mapping(address => uint32) public gamesWon;
-    mapping(address => bool) public claimedWin;
+    mapping(uint256 => address) public blogs;
+    uint256 public blogsCount;
     address private immutable implementation;
 
     constructor(address _implementation) EIP712WithModifier("Authorization token", "1") {
@@ -20,6 +18,9 @@ contract FHEBlogFactory is EIP712WithModifier {
         implementation = _implementation;
     }
 
+    function getBlogAddress(bytes32 salt) public view returns (address) {
+        return Clones.predictDeterministicAddress(implementation, salt);
+    }
    
     function createBlog(BlogStorage memory _data, string memory _nft_name, string memory _nft_short_name, bytes32 salt) public{
         address cloneAdd = Clones.cloneDeterministic(implementation,salt);
@@ -28,7 +29,8 @@ contract FHEBlogFactory is EIP712WithModifier {
             _nft_name,
             _nft_short_name
         );
-        userLastContract[msg.sender] = cloneAdd;
+        blogs[blogsCount] = cloneAdd;
+        blogsCount++;
     }       
     function createBlog(BlogStorage memory _data, bytes32 salt) public{
         createBlog(_data,  'FHE_BLOG', 'FHBL', salt);

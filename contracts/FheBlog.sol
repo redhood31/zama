@@ -18,14 +18,14 @@ import "@openzeppelin/contracts-upgradeable/token/ERC721/ERC721Upgradeable.sol";
 // onlyUser? onlyRelayer?
 
 struct DecryptedBlog{
-        uint256[] cid;
-        bytes[][] p;
+    bytes[2] p;
 }
 struct BlogStorage{
-        uint256[] cid;
-        bytes[][] p;
-}    
-   
+    bytes[] cid;
+    bytes[][] p;
+    bytes32[] publicKey;
+}
+
 contract FHE_BLOG is Initializable, ERC721Upgradeable {
     string public constant TOKEN_URI =
         "ipfs://bafybeig37ioir76s7mg5oobetncojcm3c3hxasyd4rvid4jqhy4gkaheg4/?filename=0-PUG.json";
@@ -38,18 +38,17 @@ contract FHE_BLOG is Initializable, ERC721Upgradeable {
     mapping(address => uint256) public reward;
     mapping(address => uint64) public latest_nonce;
     // function data()
-    function initialize(    
+    function initialize(
         BlogStorage memory _data, string memory _nft_name, string memory _nft_short_name
     ) external initializer{
          __ERC721_init(_nft_name, _nft_short_name);
         data = _data;
         s_tokenCounter = 0;
-    
     }
 
     constructor() {
         _disableInitializers();
-    }   
+    }
     function mintNft() public {
         _safeMint(msg.sender, s_tokenCounter);
         s_tokenCounter = s_tokenCounter + 1;
@@ -82,23 +81,17 @@ contract FHE_BLOG is Initializable, ERC721Upgradeable {
         address recoveredSigner = ECDSA.recover(digest, signature);
         return signer == recoveredSigner;
     }
-    function generateJwt(uint256 nft, uint8 relayer_id, address caller, uint256 _nonce, bytes memory signature, bytes32 publicKey) public view returns (DecryptedBlog memory) {
+    function generateJwt(uint256 nft, uint8 relayer_id, address caller, uint256 _nonce, bytes memory signature) public view returns (DecryptedBlog memory) {
        
         assert(ownerOf(nft) == caller);
-
-
         assert(verifySignature(relayer_id, _nonce, caller, signature) == true);
 
         // nonce += 1;
 
         DecryptedBlog memory decrypted_storage;
-        bytes[][] memory decryptedp = new bytes[][](data.p.length);
-        for(uint256 i = 0; i < data.p.length; i += 1){
-            decryptedp[i] = new bytes[](2);
-            decryptedp[i][0] = TFHE.reencrypt(TFHE.asEuint64(data.p[i][0]), publicKey);
-            decryptedp[i][1] = TFHE.reencrypt(TFHE.asEuint64(data.p[i][1]), publicKey);
-        }
-        decrypted_storage.cid = data.cid;
+        bytes[2] memory decryptedp;
+        decryptedp[0] = TFHE.reencrypt(TFHE.asEuint64(data.p[relayer_id][0]), data.publicKey[relayer_id]);
+        decryptedp[1] = TFHE.reencrypt(TFHE.asEuint64(data.p[relayer_id][1]), data.publicKey[relayer_id]);
         
         decrypted_storage.p = decryptedp;
         return decrypted_storage;

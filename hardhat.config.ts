@@ -14,6 +14,7 @@ import "./tasks/accounts";
 import "./tasks/deployERC20";
 import "./tasks/getEthereumAddress";
 import "./tasks/mint";
+import "./tasks/deployFheBlog";
 
 function getAllSolidityFiles(dir: string, fileList: string[] = []): string[] {
   fs.readdirSync(dir).forEach((file) => {
