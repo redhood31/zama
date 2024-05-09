@@ -11,5 +11,5 @@ task("task:deployFheBlog").setAction(async function (taskArguments: TaskArgument
   const fheBlogFactoryFAC = await ethers.getContractFactory("FHEBlogFactory");
   const fheBlogFactory = await fheBlogFactoryFAC.connect(signers[0]).deploy(fheBlogAddress);
   await fheBlogFactory.waitForDeployment();
-  console.log("FheBlogFactory: ", await fheBlogFactory.getAddress());
+  console.log("FheBlogFactory deployed to: ", await fheBlogFactory.getAddress());
 });

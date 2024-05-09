@@ -81,6 +81,11 @@ contract FHE_BLOG is Initializable, ERC721Upgradeable {
         address recoveredSigner = ECDSA.recover(digest, signature);
         return signer == recoveredSigner;
     }
+
+    function getCid(uint256 relayer_id) public view returns (bytes memory) {
+        return data.cid[relayer_id];
+    }
+
     function generateJwt(uint256 nft, uint8 relayer_id, address caller, uint256 _nonce, bytes memory signature) public view returns (DecryptedBlog memory) {
        
         assert(ownerOf(nft) == caller);
