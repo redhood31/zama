@@ -16,6 +16,7 @@ contract FHEBlogFactory is EIP712WithModifier {
     constructor(address _implementation) EIP712WithModifier("Authorization token", "1") {
         creator = msg.sender;
         implementation = _implementation;
+        blogsCount = 0;
     }
 
     function getBlogAddress(bytes32 salt) public view returns (address) {

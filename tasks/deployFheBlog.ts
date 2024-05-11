@@ -12,4 +12,5 @@ task("task:deployFheBlog").setAction(async function (taskArguments: TaskArgument
   const fheBlogFactory = await fheBlogFactoryFAC.connect(signers[0]).deploy(fheBlogAddress);
   await fheBlogFactory.waitForDeployment();
   console.log("FheBlogFactory deployed to: ", await fheBlogFactory.getAddress());
+  console.log("signer is " , await signers[0].getAddress());
 });

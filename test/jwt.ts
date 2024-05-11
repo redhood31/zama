@@ -125,7 +125,7 @@ const getSampleAliceContract = async(alice_instance, signer_alice, init_contract
 
   const alice_contract_adress = await factory_contract.blogs(0);
   const alice_contract : FHE_BLOG = FHE_BLOG__factory.connect(alice_contract_adress).connect(signer_alice);
-
+  
   return alice_contract;
 }
 
