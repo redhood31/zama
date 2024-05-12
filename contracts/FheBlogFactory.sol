@@ -16,13 +16,14 @@ contract FHEBlogFactory is EIP712WithModifier {
     constructor(address _implementation) EIP712WithModifier("Authorization token", "1") {
         creator = msg.sender;
         implementation = _implementation;
+        blogsCount = 0;
     }
 
     function getBlogAddress(bytes32 salt) public view returns (address) {
         return Clones.predictDeterministicAddress(implementation, salt);
     }
    
-    function createBlog(BlogStorage memory _data, string memory _nft_name, string memory _nft_short_name, bytes32 salt) public{
+    function createBlog(BlogStorage calldata _data, string calldata _nft_name, string calldata _nft_short_name, bytes32 salt) public{
         address cloneAdd = Clones.cloneDeterministic(implementation,salt);
         FHE_BLOG(cloneAdd).initialize(
             _data,
@@ -32,8 +33,15 @@ contract FHEBlogFactory is EIP712WithModifier {
         blogs[blogsCount] = cloneAdd;
         blogsCount++;
     }       
-    function createBlog(BlogStorage memory _data, bytes32 salt) public{
-        createBlog(_data,  'FHE_BLOG', 'FHBL', salt);
+    function createBlog(BlogStorage calldata _data, bytes32 salt) public{
+        address cloneAdd = Clones.cloneDeterministic(implementation,salt);
+        FHE_BLOG(cloneAdd).initialize(
+            _data,
+            'FHE_BLOG',
+            'FHBL'
+        );
+        blogs[blogsCount] = cloneAdd;
+        blogsCount++;
     }
 
 

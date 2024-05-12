@@ -22,7 +22,7 @@ struct DecryptedBlog{
 }
 struct BlogStorage{
     bytes[] cid;
-    bytes[][] p;
+    bytes[2][] p;
     bytes32[] publicKey;
 }
 
@@ -39,10 +39,18 @@ contract FHE_BLOG is Initializable, ERC721Upgradeable {
     mapping(address => uint64) public latest_nonce;
     // function data()
     function initialize(
-        BlogStorage memory _data, string memory _nft_name, string memory _nft_short_name
+        BlogStorage calldata _data, string calldata _nft_name, string calldata _nft_short_name
     ) external initializer{
          __ERC721_init(_nft_name, _nft_short_name);
-        data = _data;
+        // data = _data;
+        for (uint256 i = 0; i < _data.cid.length; i++) {
+            data.cid.push(_data.cid[i]);
+            bytes[2] memory cur_p;
+            data.p.push(cur_p);
+            data.p[i][0] = _data.p[i][0];
+            data.p[i][1] = _data.p[i][1];
+            data.publicKey.push(_data.publicKey[i]);
+        }
         s_tokenCounter = 0;
     }
 

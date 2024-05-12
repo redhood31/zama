@@ -106,16 +106,18 @@ const getSampleAliceContract = async(alice_instance, signer_alice, init_contract
     cid: cid,
     p: encryptedPi,
     publicKey: [
+      instances.bob.getPublicKey(predicted_address).publicKey,
+      instances.bob.getPublicKey(predicted_address).publicKey,
       instances.bob.getPublicKey(predicted_address).publicKey
     ]
   }
   console.log("lol man " , BlogStorage)
   const txDeploy = await createTransaction(
-    factory_contract["createBlog((bytes[],bytes[][],bytes32[]),string,string,bytes32)"],
+    factory_contract["createBlog((bytes[],bytes[2][],bytes32[]),string,string,bytes32)"],
     BlogStorage,  
     'FHE_BLOG',
     'FHBL',
-    "0xf172873c63909462ac4de545471fd3ad3e9eeadeec4608b92d16ce6b500704cc"
+    "0xf172873c63909462ac4de545471fd3ad3e9eeadeec4608b92d16ce6b500704cc",
   );
   await txDeploy.wait();
   console.log("-------AFTER DEPLOY YYYYY")
@@ -125,7 +127,7 @@ const getSampleAliceContract = async(alice_instance, signer_alice, init_contract
 
   const alice_contract_adress = await factory_contract.blogs(0);
   const alice_contract : FHE_BLOG = FHE_BLOG__factory.connect(alice_contract_adress).connect(signer_alice);
-
+  
   return alice_contract;
 }
 
