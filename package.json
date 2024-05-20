@@ -81,6 +81,7 @@
     "task:getEthereumAddress": "hardhat task:getEthereumAddress",
     "task:mint": "hardhat task:mint",
     "task:deployERC20": "hardhat task:deployERC20",
+    "task:deployFheBlogCrutch" : "hardhat task:deployFheBlogCrutch",
     "task:deployFheBlog": "hardhat task:deployFheBlog",
     "task:accounts": "hardhat task:accounts",
     "fhevm:start": "docker run -i -p 8545:8545 -p 8546:8546 --rm --name fhevm ghcr.io/zama-ai/ethermint-dev-node:v0.3.0-0",
