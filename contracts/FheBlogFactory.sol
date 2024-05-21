@@ -23,20 +23,22 @@ contract FHEBlogFactory is EIP712WithModifier {
         return Clones.predictDeterministicAddress(implementation, salt);
     }
    
-    function createBlog(BlogStorage calldata _data, string calldata _nft_name, string calldata _nft_short_name, bytes32 salt) public{
+    function createBlog(BlogStorage calldata _data, bytes[2][] calldata _p, string calldata _nft_name, string calldata _nft_short_name, bytes32 salt) public{
         address cloneAdd = Clones.cloneDeterministic(implementation,salt);
         FHE_BLOG(cloneAdd).initialize(
             _data,
+            _p,
             _nft_name,
             _nft_short_name
         );
         blogs[blogsCount] = cloneAdd;
         blogsCount++;
     }       
-    function createBlog(BlogStorage calldata _data, bytes32 salt) public{
+    function createBlog(BlogStorage calldata _data, bytes[2][] calldata _p, bytes32 salt) public{
         address cloneAdd = Clones.cloneDeterministic(implementation,salt);
         FHE_BLOG(cloneAdd).initialize(
             _data,
+            _p,
             'FHE_BLOG',
             'FHBL'
         );

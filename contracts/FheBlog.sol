@@ -20,9 +20,9 @@ import "@openzeppelin/contracts-upgradeable/token/ERC721/ERC721Upgradeable.sol";
 struct DecryptedBlog{
     bytes[2] p;
 }
+
 struct BlogStorage{
     bytes[] cid;
-    bytes[2][] p;
     bytes32[] publicKey;
 }
 
@@ -31,7 +31,7 @@ contract FHE_BLOG is Initializable, ERC721Upgradeable {
         "ipfs://bafybeig37ioir76s7mg5oobetncojcm3c3hxasyd4rvid4jqhy4gkaheg4/?filename=0-PUG.json";
     uint256 public s_tokenCounter;
 
-
+    euint64[2][] private p;
     
     BlogStorage private data;
     mapping(address => mapping(uint64 => bool)) internal rewarded;
@@ -39,16 +39,16 @@ contract FHE_BLOG is Initializable, ERC721Upgradeable {
     mapping(address => uint64) public latest_nonce;
     // function data()
     function initialize(
-        BlogStorage calldata _data, string calldata _nft_name, string calldata _nft_short_name
+        BlogStorage calldata _data, bytes[2][] calldata _p, string calldata _nft_name, string calldata _nft_short_name
     ) external initializer{
          __ERC721_init(_nft_name, _nft_short_name);
         // data = _data;
         for (uint256 i = 0; i < _data.cid.length; i++) {
             data.cid.push(_data.cid[i]);
-            bytes[2] memory cur_p;
-            data.p.push(cur_p);
-            data.p[i][0] = _data.p[i][0];
-            data.p[i][1] = _data.p[i][1];
+            euint64[2] memory cur_p;
+            p.push(cur_p);
+            p[i][0] = TFHE.asEuint64(_p[i][0]);
+            p[i][1] = TFHE.asEuint64(_p[i][1]);
             data.publicKey.push(_data.publicKey[i]);
         }
         s_tokenCounter = 0;
@@ -103,8 +103,8 @@ contract FHE_BLOG is Initializable, ERC721Upgradeable {
 
         DecryptedBlog memory decrypted_storage;
         bytes[2] memory decryptedp;
-        decryptedp[0] = TFHE.reencrypt(TFHE.asEuint64(data.p[relayer_id][0]), data.publicKey[relayer_id]);
-        decryptedp[1] = TFHE.reencrypt(TFHE.asEuint64(data.p[relayer_id][1]), data.publicKey[relayer_id]);
+        decryptedp[0] = TFHE.reencrypt(p[relayer_id][0], data.publicKey[relayer_id]);
+        decryptedp[1] = TFHE.reencrypt(p[relayer_id][1], data.publicKey[relayer_id]);
         
         decrypted_storage.p = decryptedp;
         return decrypted_storage;

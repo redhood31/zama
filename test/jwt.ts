@@ -90,7 +90,7 @@ const getSampleAliceContract = async(alice_instance, signer_alice, init_contract
   ]
   let pi = [[17 , 12], [14, 13], [19 , 20]];
   
-  let encryptedPi = [];
+  let encryptedPi: [Uint8Array, Uint8Array][] = [];
 
 
   for(let pkey of pi){
@@ -104,7 +104,6 @@ const getSampleAliceContract = async(alice_instance, signer_alice, init_contract
   // console.log(instances.bob.getPublicKey(predicted_address));
   let BlogStorage = {
     cid: cid,
-    p: encryptedPi,
     publicKey: [
       instances.bob.getPublicKey(predicted_address).publicKey,
       instances.bob.getPublicKey(predicted_address).publicKey,
@@ -113,8 +112,9 @@ const getSampleAliceContract = async(alice_instance, signer_alice, init_contract
   }
   console.log("lol man " , BlogStorage)
   const txDeploy = await createTransaction(
-    factory_contract["createBlog((bytes[],bytes[2][],bytes32[]),string,string,bytes32)"],
+    factory_contract["createBlog((bytes[],bytes32[]),bytes[2][],string,string,bytes32)"],
     BlogStorage,  
+    encryptedPi,
     'FHE_BLOG',
     'FHBL',
     "0xf172873c63909462ac4de545471fd3ad3e9eeadeec4608b92d16ce6b500704cc",
