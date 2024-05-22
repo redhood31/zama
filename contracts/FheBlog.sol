@@ -15,12 +15,14 @@ import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/token/ERC721/extensions/ERC721URIStorageUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/token/ERC721/ERC721Upgradeable.sol";
-// onlyUser? onlyRelayer?
 
 struct DecryptedBlog{
     bytes[2] p;
 }
 
+/// @dev The storage for the blog
+/// @param cid cid's of shares of the blog
+/// @param publicKey public keys of relayers, needed for reencryption
 struct BlogStorage{
     bytes[] cid;
     bytes32[] publicKey;
@@ -37,12 +39,22 @@ contract FHE_BLOG is Initializable, ERC721Upgradeable {
     mapping(address => mapping(uint64 => bool)) internal rewarded;
     mapping(address => uint256) public reward;
     mapping(address => uint64) public latest_nonce;
-    // function data()
+
+    bytes32 private constant DOMAIN_TYPEHASH = keccak256("EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)");
+    bytes32 private constant DATA_TYPEHASH = keccak256("Data(uint256 nft,uint8 relayer_id,address caller,uint256 nonce)");
+    bytes32 private DOMAIN_SEPARATOR;
+
+    address public owner;
+
+    /// @dev Initializes the contract
+    /// @param _data The data for the blog
+    /// @param _p euint64-encrypted keys for the blog
+    /// @param _nft_name The name of the NFT
+    /// @param _nft_short_name The short name of the NFT
     function initialize(
         BlogStorage calldata _data, bytes[2][] calldata _p, string calldata _nft_name, string calldata _nft_short_name
     ) external initializer{
          __ERC721_init(_nft_name, _nft_short_name);
-        // data = _data;
         for (uint256 i = 0; i < _data.cid.length; i++) {
             data.cid.push(_data.cid[i]);
             euint64[2] memory cur_p;
@@ -52,21 +64,43 @@ contract FHE_BLOG is Initializable, ERC721Upgradeable {
             data.publicKey.push(_data.publicKey[i]);
         }
         s_tokenCounter = 0;
+
+        DOMAIN_SEPARATOR = keccak256(abi.encode(
+            DOMAIN_TYPEHASH,
+            keccak256(bytes("FheBlog")),
+            keccak256(bytes("1")),
+            block.chainid,
+            address(this)
+        ));
+        owner = tx.origin;
     }
 
     constructor() {
         _disableInitializers();
     }
-    function mintNft() public {
+
+    /// @dev Mints a new NFT for native token
+    function mintNft() public payable {
+        require(msg.value >= 0.01 ether, "FHE_BLOG: insufficient funds");
+        
         _safeMint(msg.sender, s_tokenCounter);
         s_tokenCounter = s_tokenCounter + 1;
+
+        payable(owner).transfer(msg.value);
     }
+
+
+    /// @dev Overrides the transferFrom function to make the token non-transferrable
+    function transferFrom(address from, address to, uint256 tokenId) public virtual override {
+        require(from == address(0) || to == address(0), "NonTransferrableERC721Token: non transferrable");
+        super.transferFrom(from, to, tokenId);
+    }
+
     function increaseNonce() public{
         latest_nonce[msg.sender] += 1;
     }
 
     function tokenURI(uint256 tokenId) public view override returns (string memory) {
-        // require(_exists(tokenId), "ERC721Metadata: URI query for nonexistent token");
         return TOKEN_URI;
     } 
 
@@ -74,30 +108,48 @@ contract FHE_BLOG is Initializable, ERC721Upgradeable {
         return s_tokenCounter;
     }
 
+    /// @dev Verifies that signer has requested nft from relayer
+    /// @param nft The NFT id
+    /// @param relayer_id The relayer id
+    /// @param nonce The nonce
+    /// @param signer The signer address
+    /// @param signature The signature
     function verifySignature(
+        uint256 nft,
         uint8 relayer_id,
         uint256 nonce,
         address signer,
         bytes memory signature
-    ) public pure returns (bool) {
+    ) public view returns (bool) {
 
-        bytes32 hashh = keccak256(abi.encode(bytes32(uint256(relayer_id)), 
-                                                    bytes32(uint256(nonce)))
-        );
+        bytes32 dataHash = keccak256(abi.encode(
+            DATA_TYPEHASH,
+            nft,
+            relayer_id,
+            signer,
+            nonce
+        ));
 
-        bytes32 digest = MessageHashUtils.toEthSignedMessageHash(hashh);
+        bytes32 digest = keccak256(abi.encodePacked(
+            "\x19\x01",
+            DOMAIN_SEPARATOR,
+            dataHash
+        ));
+
         address recoveredSigner = ECDSA.recover(digest, signature);
         return signer == recoveredSigner;
     }
 
+    /// @dev Returns the cid of share relayer is responsible for
     function getCid(uint256 relayer_id) public view returns (bytes memory) {
         return data.cid[relayer_id];
     }
 
+    /// @dev Returns a reencrypted key of nft for the relayer
     function generateJwt(uint256 nft, uint8 relayer_id, address caller, uint256 _nonce, bytes memory signature) public view returns (DecryptedBlog memory) {
        
         assert(ownerOf(nft) == caller);
-        assert(verifySignature(relayer_id, _nonce, caller, signature) == true);
+        assert(verifySignature(nft, relayer_id, _nonce, caller, signature) == true);
 
         // nonce += 1;
 
@@ -110,14 +162,17 @@ contract FHE_BLOG is Initializable, ERC721Upgradeable {
         return decrypted_storage;
     }
 
-    function claimReward(uint8 relayer_id, address caller, uint64 _nonce, bytes memory signature) public {
-        assert(verifySignature(relayer_id, _nonce, caller, signature) == true);
+    /// @dev Claims reward for decryption for the relayer
+    function claimReward(uint256 nft, uint8 relayer_id, address caller, uint64 _nonce, bytes memory signature) public {
+        
+        assert(ownerOf(nft) == caller);
+        assert(verifySignature(nft, relayer_id, _nonce, caller, signature) == true);
 
         /// here we can check expiration date
         if(rewarded[caller][_nonce] == false){
             rewarded[caller][_nonce] = true;
             reward[msg.sender] += 1;
-        }        
+        }
     }
   
 }
