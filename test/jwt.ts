@@ -62,9 +62,18 @@ const generateSignature = async(nft_token, relayer_id, nonce, contractAddress, s
   // const signature = await signer.signMessage(messageBytes );
   return signature;
 }
+
+
+function generateRandomUint64() {
+  // Generate a random 32-bit unsigned integer twice and combine them
+  const part1 = BigInt(Math.floor(Math.random() * 2**32));
+  const part2 = BigInt(Math.floor(Math.random() * 2**32));
+  return (part1 << 32n) | part2;
+}
+
 const generateJwt = async(contract, relayer_signer, relayer_instance, caller_signer, relayer_id, nft_token) => {
   // 
-  const current_nonce = await contract.latest_nonce(caller_signer.address);
+  const current_nonce = generateRandomUint64();
   const contractAddress = await contract.getAddress();
   const signature = await generateSignature(nft_token, relayer_id, current_nonce, contractAddress, caller_signer);
   const token = relayer_instance.getPublicKey(contractAddress)!;
@@ -218,7 +227,7 @@ describe("FHE_BLOG_TESTS", function () {
         await alice_contract.mintNft({value: ethers.parseEther("0.01")});
         
 
-        const current_nonce = await alice_contract.latest_nonce(this.signers.alice.address);
+        const current_nonce = generateRandomUint64();
         const signature = await generateSignature(nft_token, 3, current_nonce, alice_contract_adress, this.signers.alice);
         
         const blogStorage = await generateJwt(alice_contract, this.signers.bob, this.instances.bob, this.signers.alice, 0, nft_token);

@@ -38,7 +38,6 @@ contract FHE_BLOG is Initializable, ERC721Upgradeable {
     BlogStorage private data;
     mapping(address => mapping(uint64 => bool)) internal rewarded;
     mapping(address => uint256) public reward;
-    mapping(address => uint64) public latest_nonce;
 
     bytes32 private constant DOMAIN_TYPEHASH = keccak256("EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)");
     bytes32 private constant DATA_TYPEHASH = keccak256("Data(uint256 nft,uint8 relayer_id,address caller,uint256 nonce)");
@@ -94,10 +93,6 @@ contract FHE_BLOG is Initializable, ERC721Upgradeable {
     function transferFrom(address from, address to, uint256 tokenId) public virtual override {
         require(from == address(0) || to == address(0), "NonTransferrableERC721Token: non transferrable");
         super.transferFrom(from, to, tokenId);
-    }
-
-    function increaseNonce() public{
-        latest_nonce[msg.sender] += 1;
     }
 
     function tokenURI(uint256 tokenId) public view override returns (string memory) {
