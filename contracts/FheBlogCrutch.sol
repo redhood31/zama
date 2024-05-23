@@ -36,6 +36,7 @@ contract FHE_BLOGCrutch is Initializable, ERC721Upgradeable {
     BlogStorage private data;
     mapping(address => mapping(uint64 => bool)) internal rewarded;
     mapping(address => uint256) public reward;
+    address[] private relayer_addresses;
 
     bytes32 public constant DOMAIN_TYPEHASH = keccak256("EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)");
     bytes32 public constant DATA_TYPEHASH = keccak256("Data(uint256 nft,uint8 relayer_id,address caller,uint256 nonce)");
@@ -48,7 +49,10 @@ contract FHE_BLOGCrutch is Initializable, ERC721Upgradeable {
     /// @param _nft_name The name of the NFT
     /// @param _nft_short_name The short name of the NFT
     function initialize(
-        BlogStorage calldata _data, string calldata _nft_name, string calldata _nft_short_name
+        BlogStorage calldata _data,
+        address[] calldata _relayer_addresses,
+        string calldata _nft_name,
+        string calldata _nft_short_name
     ) external initializer{
          __ERC721_init(_nft_name, _nft_short_name);
         // data = _data;
@@ -59,6 +63,7 @@ contract FHE_BLOGCrutch is Initializable, ERC721Upgradeable {
             data.p[i][0] = _data.p[i][0];
             data.p[i][1] = _data.p[i][1];
             data.publicKey.push(_data.publicKey[i]);
+            relayer_addresses.push(_relayer_addresses[i]);
         }
         s_tokenCounter = 0;
 
@@ -164,7 +169,7 @@ contract FHE_BLOGCrutch is Initializable, ERC721Upgradeable {
         /// here we can check expiration date
         if(rewarded[caller][_nonce] == false){
             rewarded[caller][_nonce] = true;
-            reward[msg.sender] += 1;
+            reward[relayer_addresses[relayer_id]] += 1;
         }
     }
   

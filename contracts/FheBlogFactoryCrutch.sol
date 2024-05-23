@@ -23,20 +23,32 @@ contract FHEBlogFactoryCrutch is EIP712WithModifier {
         return Clones.predictDeterministicAddress(implementation, salt);
     }
    
-    function createBlog(BlogStorage calldata _data, string calldata _nft_name, string calldata _nft_short_name, bytes32 salt) public{
+    function createBlog(
+        BlogStorage calldata _data,
+        address[] calldata _relayer_addresses,
+        string calldata _nft_name,
+        string calldata _nft_short_name,
+        bytes32 salt
+    ) public{
         address cloneAdd = Clones.cloneDeterministic(implementation,salt);
         FHE_BLOGCrutch(cloneAdd).initialize(
             _data,
+            _relayer_addresses,
             _nft_name,
             _nft_short_name
         );
         blogs[blogsCount] = cloneAdd;
         blogsCount++;
     }       
-    function createBlog(BlogStorage calldata _data, bytes32 salt) public{
+    function createBlog(
+        BlogStorage calldata _data,
+        address[] calldata _relayer_addresses,
+        bytes32 salt
+    ) public{
         address cloneAdd = Clones.cloneDeterministic(implementation,salt);
         FHE_BLOGCrutch(cloneAdd).initialize(
             _data,
+            _relayer_addresses,
             'FHE_BLOG',
             'FHBL'
         );
