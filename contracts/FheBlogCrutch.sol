@@ -43,7 +43,7 @@ contract FHE_BLOGCrutch is Initializable, ERC721Upgradeable {
     bytes32 public DOMAIN_SEPARATOR;
 
     address public owner;
-    
+    uint256 public price;
     /// @dev Initializes the contract
     /// @param _data The data for the blog
     /// @param _nft_name The name of the NFT
@@ -52,7 +52,8 @@ contract FHE_BLOGCrutch is Initializable, ERC721Upgradeable {
         BlogStorage calldata _data,
         address[] calldata _relayer_addresses,
         string calldata _nft_name,
-        string calldata _nft_short_name
+        string calldata _nft_short_name,
+        uint256 _price
     ) external initializer{
          __ERC721_init(_nft_name, _nft_short_name);
         // data = _data;
@@ -75,6 +76,7 @@ contract FHE_BLOGCrutch is Initializable, ERC721Upgradeable {
             address(this)
         ));
         owner = tx.origin;
+        price = _price;
     }
 
     constructor() {
