@@ -15,52 +15,56 @@ import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/token/ERC721/extensions/ERC721URIStorageUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/token/ERC721/ERC721Upgradeable.sol";
+// onlyUser? onlyRelayer?
 
 struct DecryptedBlog{
-    bytes[2] p;
+    uint64[2] p;
 }
-
-/// @dev The storage for the blog
-/// @param cid cid's of shares of the blog
-/// @param publicKey public keys of relayers, needed for reencryption
 struct BlogStorage{
     bytes[] cid;
+    uint64[2][] p;
     bytes32[] publicKey;
 }
 
-contract FHE_BLOG is Initializable, ERC721Upgradeable {
+contract FHE_BLOGCrutch is Initializable, ERC721Upgradeable {
     string public constant TOKEN_URI =
         "ipfs://bafybeig37ioir76s7mg5oobetncojcm3c3hxasyd4rvid4jqhy4gkaheg4/?filename=0-PUG.json";
     uint256 public s_tokenCounter;
 
-    euint64[2][] private p;
+
     
     BlogStorage private data;
     mapping(address => mapping(uint64 => bool)) internal rewarded;
     mapping(address => uint256) public reward;
+    address[] private relayer_addresses;
 
-    bytes32 private constant DOMAIN_TYPEHASH = keccak256("EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)");
-    bytes32 private constant DATA_TYPEHASH = keccak256("Data(uint256 nft,uint8 relayer_id,address caller,uint256 nonce)");
-    bytes32 private DOMAIN_SEPARATOR;
+    bytes32 public constant DOMAIN_TYPEHASH = keccak256("EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)");
+    bytes32 public constant DATA_TYPEHASH = keccak256("Data(uint256 nft,uint8 relayer_id,address caller,uint256 nonce)");
+    bytes32 public DOMAIN_SEPARATOR;
 
     address public owner;
-
+    uint256 public price;
     /// @dev Initializes the contract
     /// @param _data The data for the blog
-    /// @param _p euint64-encrypted keys for the blog
     /// @param _nft_name The name of the NFT
     /// @param _nft_short_name The short name of the NFT
     function initialize(
-        BlogStorage calldata _data, bytes[2][] calldata _p, string calldata _nft_name, string calldata _nft_short_name
+        BlogStorage calldata _data,
+        address[] calldata _relayer_addresses,
+        string calldata _nft_name,
+        string calldata _nft_short_name,
+        uint256 _price
     ) external initializer{
          __ERC721_init(_nft_name, _nft_short_name);
+        // data = _data;
         for (uint256 i = 0; i < _data.cid.length; i++) {
             data.cid.push(_data.cid[i]);
-            euint64[2] memory cur_p;
-            p.push(cur_p);
-            p[i][0] = TFHE.asEuint64(_p[i][0]);
-            p[i][1] = TFHE.asEuint64(_p[i][1]);
+            uint64[2] memory cur_p;
+            data.p.push(cur_p);
+            data.p[i][0] = _data.p[i][0];
+            data.p[i][1] = _data.p[i][1];
             data.publicKey.push(_data.publicKey[i]);
+            relayer_addresses.push(_relayer_addresses[i]);
         }
         s_tokenCounter = 0;
 
@@ -72,6 +76,7 @@ contract FHE_BLOG is Initializable, ERC721Upgradeable {
             address(this)
         ));
         owner = tx.origin;
+        price = _price;
     }
 
     constructor() {
@@ -88,7 +93,6 @@ contract FHE_BLOG is Initializable, ERC721Upgradeable {
         payable(owner).transfer(msg.value);
     }
 
-
     /// @dev Overrides the transferFrom function to make the token non-transferrable
     function transferFrom(address from, address to, uint256 tokenId) public virtual override {
         require(from == address(0) || to == address(0), "NonTransferrableERC721Token: non transferrable");
@@ -96,6 +100,7 @@ contract FHE_BLOG is Initializable, ERC721Upgradeable {
     }
 
     function tokenURI(uint256 tokenId) public view override returns (string memory) {
+        // require(_exists(tokenId), "ERC721Metadata: URI query for nonexistent token");
         return TOKEN_URI;
     } 
 
@@ -149,9 +154,9 @@ contract FHE_BLOG is Initializable, ERC721Upgradeable {
         // nonce += 1;
 
         DecryptedBlog memory decrypted_storage;
-        bytes[2] memory decryptedp;
-        decryptedp[0] = TFHE.reencrypt(p[relayer_id][0], data.publicKey[relayer_id]);
-        decryptedp[1] = TFHE.reencrypt(p[relayer_id][1], data.publicKey[relayer_id]);
+        uint64[2] memory decryptedp;
+        decryptedp[0] = data.p[relayer_id][0];
+        decryptedp[1] = data.p[relayer_id][1];
         
         decrypted_storage.p = decryptedp;
         return decrypted_storage;
@@ -166,7 +171,7 @@ contract FHE_BLOG is Initializable, ERC721Upgradeable {
         /// here we can check expiration date
         if(rewarded[caller][_nonce] == false){
             rewarded[caller][_nonce] = true;
-            reward[msg.sender] += 1;
+            reward[relayer_addresses[relayer_id]] += 1;
         }
     }
   

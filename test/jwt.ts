@@ -27,27 +27,59 @@ const deployFheBlogFactory = async(signer, initial_contract) =>{
   return contract;
 }
 
-const generateSignature = async(relayer_id, nonce, signer) => {
-    let signer_addr = signer.address;
-    let abiencoder = new ethers.AbiCoder();
-    let encoded = abiencoder.encode(["uint256", "uint256"], [relayer_id, nonce]);
-    const hash = ethers.keccak256(encoded);
-    const messageBytes = Buffer.from(hash.slice(2), 'hex');
-    const signature = await signer.signMessage(messageBytes );
-    return signature;
+const generateSignature = async(nft_token, relayer_id, nonce, contractAddress, signer) => {
+
+  const domain = {
+    name: "FheBlog",
+    version: "1",            
+    chainId: (await signer.provider.getNetwork()).chainId,              
+    verifyingContract: contractAddress
+  };
+
+  const types = {
+    Data: [
+      { name: "nft", type: "uint256" },
+      { name: "relayer_id", type: "uint8" },
+      { name: "caller", type: "address" },
+      { name: "nonce", type: "uint256" }
+    ]
+  };
+
+  const data = {
+    nft: nft_token,
+    relayer_id,
+    caller: signer.address,
+    nonce
+  };
+
+  const signature = await signer.signTypedData(domain, types, data);
+
+  // let signer_addr = signer.address;
+  // let abiencoder = new ethers.AbiCoder();
+  // let encoded = abiencoder.encode(["uint256", "uint256"], [relayer_id, nonce]);
+  // const hash = ethers.keccak256(encoded);
+  // const messageBytes = Buffer.from(hash.slice(2), 'hex');
+  // const signature = await signer.signMessage(messageBytes );
+  return signature;
 }
+
+
+function generateRandomUint64() {
+  // Generate a random 32-bit unsigned integer twice and combine them
+  const part1 = BigInt(Math.floor(Math.random() * 2**32));
+  const part2 = BigInt(Math.floor(Math.random() * 2**32));
+  return (part1 << 32n) | part2;
+}
+
 const generateJwt = async(contract, relayer_signer, relayer_instance, caller_signer, relayer_id, nft_token) => {
   // 
-  const current_nonce = await contract.latest_nonce(caller_signer.address);
-  const signature = await generateSignature(relayer_id, current_nonce, caller_signer)
-  
-
+  const current_nonce = generateRandomUint64();
   const contractAddress = await contract.getAddress();
+  const signature = await generateSignature(nft_token, relayer_id, current_nonce, contractAddress, caller_signer);
   const token = relayer_instance.getPublicKey(contractAddress)!;
 
 
   const relayerContract = await contract.connect(relayer_signer)
-
 
   const tx1 = await relayerContract.generateJwt(nft_token, relayer_id, caller_signer.address, current_nonce, signature, token.publicKey) // need token.signature?
 
@@ -68,11 +100,11 @@ const getReward = async(contract, relayer_signer)=>{
 }
 // await claimReward(alice_contract, this.signers.bob, this.signers.alice, 3, signature, current_nonce);
 
-const claimReward = async(contract, relayer_signer, caller,relayer_id, signature, _nonce)=>{
+const claimReward = async(nft_token, contract, relayer_signer, caller,relayer_id, signature, _nonce)=>{
 
     const relayerContract = await contract.connect(relayer_signer);
 
-    await relayerContract.claimReward(relayer_id, caller, _nonce, signature);
+    await relayerContract.claimReward(nft_token, relayer_id, caller, _nonce, signature);
 
 }
 
@@ -90,7 +122,7 @@ const getSampleAliceContract = async(alice_instance, signer_alice, init_contract
   ]
   let pi = [[17 , 12], [14, 13], [19 , 20]];
   
-  let encryptedPi = [];
+  let encryptedPi: [Uint8Array, Uint8Array][] = [];
 
 
   for(let pkey of pi){
@@ -104,7 +136,6 @@ const getSampleAliceContract = async(alice_instance, signer_alice, init_contract
   // console.log(instances.bob.getPublicKey(predicted_address));
   let BlogStorage = {
     cid: cid,
-    p: encryptedPi,
     publicKey: [
       instances.bob.getPublicKey(predicted_address).publicKey,
       instances.bob.getPublicKey(predicted_address).publicKey,
@@ -113,8 +144,9 @@ const getSampleAliceContract = async(alice_instance, signer_alice, init_contract
   }
   console.log("lol man " , BlogStorage)
   const txDeploy = await createTransaction(
-    factory_contract["createBlog((bytes[],bytes[2][],bytes32[]),string,string,bytes32)"],
+    factory_contract["createBlog((bytes[],bytes32[]),bytes[2][],string,string,bytes32)"],
     BlogStorage,  
+    encryptedPi,
     'FHE_BLOG',
     'FHBL',
     "0xf172873c63909462ac4de545471fd3ad3e9eeadeec4608b92d16ce6b500704cc",
@@ -153,27 +185,6 @@ describe("FHE_BLOG_TESTS", function () {
           assert.equal(tokenCounter.toString(),"0")
       });
 
-      it("Checks the signatures", async function(){
-        
-         console.log(" hey alisa " , this.signers.alice)
-        let relayer_id = 3;
-        let nonce = 0;
-        let signer_addr = this.signers.alice.address;
-
-        let abiencoder = new ethers.AbiCoder();
-        let encoded = abiencoder.encode(["uint256", "uint256"], [relayer_id, nonce]);
-        const hash = ethers.keccak256(encoded);
-        const messageBytes = Buffer.from(hash.slice(2), 'hex');
-
-        const signature = await this.signers.alice.signMessage(messageBytes );
-        
-        const result = await this.nft_contract.verifySignature(relayer_id , nonce, signer_addr, signature);
-        const result1 = await this.nft_contract.verifySignature(nonce , relayer_id, signer_addr, signature);
-        assert.equal(result, true);
-        assert.equal(result1, false);
-
-      });
-
       it("get nft", async function() {
 
         const alice_contract = await getSampleAliceContract(this.instances.alice, this.signers.alice, this.nft_contract, this.signers)
@@ -182,7 +193,7 @@ describe("FHE_BLOG_TESTS", function () {
         
 
         const nft_token = await alice_contract.s_tokenCounter();
-        await alice_contract.mintNft();
+        await alice_contract.mintNft({value: ethers.parseEther("0.01")});
         
 
         assert.equal(this.signers.alice.address == await alice_contract.ownerOf(nft_token), true)
@@ -195,7 +206,7 @@ describe("FHE_BLOG_TESTS", function () {
         this.instances = await createInstances(alice_contract_adress, ethers, this.signers);
         
         const nft_token = await alice_contract.s_tokenCounter();
-        await alice_contract.mintNft();
+        await alice_contract.mintNft({value: ethers.parseEther("0.01")});
         
 
 
@@ -213,21 +224,21 @@ describe("FHE_BLOG_TESTS", function () {
         this.instances = await createInstances(alice_contract_adress, ethers, this.signers);
         
         const nft_token = await alice_contract.s_tokenCounter();
-        await alice_contract.mintNft();
+        await alice_contract.mintNft({value: ethers.parseEther("0.01")});
         
 
-        const current_nonce = await alice_contract.latest_nonce(this.signers.alice.address);
-        const signature = await generateSignature(3, current_nonce, this.signers.alice);
+        const current_nonce = generateRandomUint64();
+        const signature = await generateSignature(nft_token, 3, current_nonce, alice_contract_adress, this.signers.alice);
         
         const blogStorage = await generateJwt(alice_contract, this.signers.bob, this.instances.bob, this.signers.alice, 0, nft_token);
 
         assert.equal(await getReward(alice_contract, this.signers.bob), 0);
 
-        await claimReward(alice_contract, this.signers.bob, this.signers.alice, 3, signature, current_nonce);
+        await claimReward(nft_token, alice_contract, this.signers.bob, this.signers.alice, 3, signature, current_nonce);
 
         assert.equal(await getReward(alice_contract, this.signers.bob), 1);
 
-        await claimReward(alice_contract, this.signers.bob, this.signers.alice, 3, signature, current_nonce);
+        await claimReward(nft_token, alice_contract, this.signers.bob, this.signers.alice, 3, signature, current_nonce);
 
         assert.equal(await getReward(alice_contract, this.signers.bob), 1);
 

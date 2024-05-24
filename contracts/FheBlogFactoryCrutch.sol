@@ -5,8 +5,8 @@ pragma solidity ^0.8.20;
 import "fhevm/abstracts/EIP712WithModifier.sol";
 import "fhevm/lib/TFHE.sol";
 import "@openzeppelin/contracts/proxy/Clones.sol";
-import './FheBlog.sol';
-contract FHEBlogFactory is EIP712WithModifier {
+import './FheBlogCrutch.sol';
+contract FHEBlogFactoryCrutch is EIP712WithModifier {
     address public creator;
 
     mapping(uint256 => address) public blogs;
@@ -23,29 +23,43 @@ contract FHEBlogFactory is EIP712WithModifier {
         return Clones.predictDeterministicAddress(implementation, salt);
     }
    
-    function createBlog(BlogStorage calldata _data, bytes[2][] calldata _p, string calldata _nft_name, string calldata _nft_short_name, bytes32 salt) public{
+    function createBlog(
+        BlogStorage calldata _data,
+        address[] calldata _relayer_addresses,
+        string calldata _nft_name,
+        string calldata _nft_short_name,
+        bytes32 salt,
+        uint256 _price
+    ) public{
         address cloneAdd = Clones.cloneDeterministic(implementation,salt);
-        FHE_BLOG(cloneAdd).initialize(
+        FHE_BLOGCrutch(cloneAdd).initialize(
             _data,
-            _p,
+            _relayer_addresses,
             _nft_name,
-            _nft_short_name
+            _nft_short_name,
+            _price
         );
         blogs[blogsCount] = cloneAdd;
         blogsCount++;
     }       
-    function createBlog(BlogStorage calldata _data, bytes[2][] calldata _p, bytes32 salt) public{
+    function createBlog(
+        BlogStorage calldata _data,
+        address[] calldata _relayer_addresses,
+        bytes32 salt,
+        uint256 _price
+    ) public{
         address cloneAdd = Clones.cloneDeterministic(implementation,salt);
-        FHE_BLOG(cloneAdd).initialize(
+        FHE_BLOGCrutch(cloneAdd).initialize(
             _data,
-            _p,
+            _relayer_addresses,
             'FHE_BLOG',
-            'FHBL'
+            'FHBL',
+            _price
         );
         blogs[blogsCount] = cloneAdd;
         blogsCount++;
     }
-
+ 
 
     
 }
